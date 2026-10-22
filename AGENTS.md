@@ -77,6 +77,19 @@ mirrors the generator textually instead of using type information.
 5. Document it in `README.md` (checks table, settings table, example output).
 6. Verify against carapace-bin with a fresh custom binary and a cleaned cache.
 
+## Release
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`:
+
+1. run the analyzer tests
+2. `goreleaser/goreleaser-action@v7` runs `release --clean` using `.goreleaser.yml`
+3. linux/windows/darwin binaries of `cmd/carapace-lint` are attached to the GitHub release,
+   with the version injected via `-ldflags -X main.version={{.Version}}`
+
+The module itself is usable without a release (`go get github.com/carapace-sh/carapace-lint@vX`),
+the binaries only provide the standalone entry point. Building the plugin into golangci-lint is
+always done by the consumer via `golangci-lint custom`.
+
 ## Conventions
 
 - Messages are lowercase, one sentence, and name the offending symbol: `public action "ActionX" should ...`.
