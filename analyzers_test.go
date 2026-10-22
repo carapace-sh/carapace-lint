@@ -17,3 +17,14 @@ func TestFlagActionsOrder(t *testing.T) {
 
 	analysistest.RunWithSuggestedFixes(t, analysistest.TestData(), flagActionsOrderAnalyzer, "flagactions")
 }
+
+func TestMacroSyntax(t *testing.T) {
+	t.Parallel()
+
+	paths, err := Settings{}.macroSyntaxPaths()
+	if err != nil {
+		t.Fatalf("macroSyntaxPaths: %v", err)
+	}
+
+	analysistest.Run(t, analysistest.TestData(), newMacroSyntaxAnalyzer(paths), "pkg/actions/tools", "completers/action")
+}

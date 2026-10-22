@@ -4,6 +4,8 @@ package carapacelint
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/golangci/plugin-module-register/register"
 	"golang.org/x/tools/go/analysis"
@@ -27,6 +29,11 @@ type Settings struct {
 	FlagsOrder *bool `json:"flags-order"`
 	// FlagActionsOrder checks that flag completions are defined in alphabetical order (default: true).
 	FlagActionsOrder *bool `json:"flag-actions-order"`
+	// MacroSyntax checks that public actions match the macro syntax (default: true).
+	MacroSyntax *bool `json:"macro-syntax"`
+	// MacroSyntaxPaths restricts MacroSyntax to files matching these patterns
+	// (default: `["(^|/)pkg/actions(/|$)"]`).
+	MacroSyntaxPaths []string `json:"macro-syntax-paths"`
 }
 
 func (s Settings) flagsOrder() bool {
@@ -35,6 +42,31 @@ func (s Settings) flagsOrder() bool {
 
 func (s Settings) flagActionsOrder() bool {
 	return s.FlagActionsOrder == nil || *s.FlagActionsOrder
+}
+
+func (s Settings) macroSyntax() bool {
+	return s.MacroSyntax == nil || *s.MacroSyntax
+}
+
+// macroSyntaxPaths returns the patterns of files providing public actions.
+func (s Settings) macroSyntaxPaths() ([]*regexp.Regexp, error) {
+	patterns := s.MacroSyntaxPaths
+	if len(patterns) == 0 {
+		patterns = []string{`(^|/)pkg/actions(/|$)`}
+	}
+
+	paths := make([]*regexp.Regexp, 0, len(patterns))
+
+	for _, pattern := range patterns {
+		path, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("invalid macro-syntax-paths pattern %q: %w", pattern, err)
+		}
+
+		paths = append(paths, path)
+	}
+
+	return paths, nil
 }
 
 type plugin struct {
@@ -61,6 +93,15 @@ func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 
 	if p.settings.flagActionsOrder() {
 		analyzers = append(analyzers, flagActionsOrderAnalyzer)
+	}
+
+	if p.settings.macroSyntax() {
+		paths, err := p.settings.macroSyntaxPaths()
+		if err != nil {
+			return nil, err
+		}
+
+		analyzers = append(analyzers, newMacroSyntaxAnalyzer(paths))
 	}
 
 	if len(analyzers) == 0 {
