@@ -59,6 +59,19 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestAnalyzers(t *testing.T) {
+	t.Parallel()
+
+	analyzers, err := Analyzers()
+	if err != nil {
+		t.Fatalf("Analyzers: %v", err)
+	}
+
+	if len(analyzers) != 4 {
+		t.Errorf("got %d analyzers, want 4", len(analyzers))
+	}
+}
+
 func TestNewAllDisabled(t *testing.T) {
 	t.Parallel()
 

@@ -139,6 +139,21 @@ linters:
           - carapace
 ```
 
+## Standalone binary
+
+Released binaries run all checks with default settings, without golangci-lint:
+
+```shell
+go install github.com/carapace-sh/carapace-lint/cmd/carapace-lint@latest
+carapace-lint ./...
+carapace-lint -fix ./...
+carapace-lint --version
+```
+
+The binary is a regular analysis driver, so `-fix`, `-json`, `help [analyzer]` and the
+per-analyzer `-<Analyzer>=false` flags are available. Settings like `macro-syntax-paths`
+are only available through the golangci-lint plugin.
+
 ## Settings
 
 | Key                  | Type     | Default                     | Description                                     |

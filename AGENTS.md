@@ -3,7 +3,8 @@
 A [golangci-lint](https://golangci-lint.run/docs/plugins/module-plugins/) **module plugin** that lints
 [carapace](https://github.com/carapace-sh/carapace) command definitions. It replaces the former
 `carapace-bin/cmd/carapace-lint` command: the checks run inside an existing golangci-lint run, so
-configuration, SARIF reports, pull request annotations and `--fix` are reused.
+configuration, SARIF reports, pull request annotations and `--fix` are reused. A standalone binary
+with default settings is shipped as well (`cmd/carapace-lint`).
 
 Used by [carapace-bin](https://github.com/carapace-sh/carapace-bin) (completers and shared actions) and
 by CLIs integrating carapace.
@@ -19,8 +20,11 @@ by CLIs integrating carapace.
 | `./custom-gcl run ./...` | Run the checks |
 | `./custom-gcl cache clean` | **Required after changing the plugin** — results are cached per binary version |
 | `./custom-gcl run --max-issues-per-linter=0 --max-same-issues=0 ./...` | Untruncated results (default cap is 50) |
+| `go run ./cmd/carapace-lint ./...` | Standalone binary (all checks, default settings) |
+| `go run ./cmd/carapace-lint -fix ./...` | Apply the suggested fixes |
+| `go run ./cmd/carapace-lint help` | List analyzers and their flags |
 
-No Makefile — CI is `.github/workflows/test.yml`.
+No Makefile — CI is `.github/workflows/test.yml`, releases are `.github/workflows/release.yml`.
 
 To test a change against a real repository, build the custom binary into a temp dir:
 
@@ -38,12 +42,13 @@ cd /path/to/carapace-bin && /tmp/gcl/custom-gcl run ./pkg/actions/... ./complete
 ## Structure
 
 ```
-carapace.go          plugin registration, Settings, BuildAnalyzers, load mode
+carapace.go          plugin registration, Settings, BuildAnalyzers, Analyzers, load mode
 flagsorder.go        FlagsOrder: alphabetical cmd.Flags().<Type>(...) definitions
 flagactionsorder.go  FlagActionsOrder: alphabetical FlagCompletion(ActionMap{...}) entries
 macrosyntax.go       MacroSyntax: public actions must be representable as macros
 completionvalues.go  CompletionValues: value arity and duplicate entries
 reorder.go           shared reordering and suggested fix helpers
+cmd/carapace-lint/   standalone driver (multichecker) published by goreleaser
 *_test.go            plugin, analyzer, guard and fix tests
 testdata/src/...     analysistest packages (GOPATH layout, `// want` comments, `.golden` files)
 ```
@@ -103,6 +108,9 @@ mirrors the generator textually instead of using type information.
   be reported.
 - **Runtime values are skipped**: arity and duplicate checks only see literal arguments of
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
+- **The standalone binary has no settings**: `cmd/carapace-lint` runs `Analyzers()` (default settings)
+  and only supports the driver's own flags (`-fix`, `-json`, `-<Analyzer>=false`). Anything that needs
+  `Settings` (e.g. `macro-syntax-paths`) must go through the golangci-lint plugin.
 
 ## Related
 

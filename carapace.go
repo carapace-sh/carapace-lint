@@ -89,6 +89,16 @@ func New(rawSettings any) (register.LinterPlugin, error) {
 	return &plugin{settings: settings}, nil
 }
 
+// Analyzers returns the analyzers of all checks with default settings.
+func Analyzers() ([]*analysis.Analyzer, error) {
+	p, err := New(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.BuildAnalyzers()
+}
+
 // BuildAnalyzers creates the analyzers of the enabled checks.
 func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 	var analyzers []*analysis.Analyzer
