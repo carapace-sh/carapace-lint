@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
-	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -16,19 +15,19 @@ var completionValuesAnalyzer = &analysis.Analyzer{
 	Run:  runCompletionValues,
 }
 
-// valueActions maps carapace actions to the number of arguments per completion value.
-var valueActions = map[string]int{
-	"ActionValues":                1,
-	"ActionValuesDescribed":       2,
-	"ActionStyledValues":          2,
-	"ActionStyledValuesDescribed": 3,
+// valueAction describes a carapace action taking completion values.
+type valueAction struct {
+	stride int    // number of arguments per entry
+	shape  string // expected arguments, empty if values are not paired
 }
 
-// valueActionShapes describes the arguments of actions requiring pairs or triples.
-var valueActionShapes = map[string]string{
-	"ActionValuesDescribed":       "value/description pairs",
-	"ActionStyledValues":          "value/style pairs",
-	"ActionStyledValuesDescribed": "value/description/style triples",
+// valueActions are the carapace actions taking completion values.
+var valueActions = map[string]valueAction{
+	"ActionStyles":                {stride: 1},
+	"ActionValues":                {stride: 1},
+	"ActionValuesDescribed":       {stride: 2, shape: "value/description pairs"},
+	"ActionStyledValues":          {stride: 2, shape: "value/style pairs"},
+	"ActionStyledValuesDescribed": {stride: 3, shape: "value/description/style triples"},
 }
 
 func runCompletionValues(pass *analysis.Pass) (any, error) {
@@ -44,8 +43,8 @@ func runCompletionValues(pass *analysis.Pass) (any, error) {
 				return true
 			}
 
-			if stride, ok := valueActions[name]; ok {
-				checkCompletionValues(pass, call, name, stride)
+			if action, ok := valueActions[name]; ok {
+				checkCompletionValues(pass, call, name, action)
 			}
 
 			return true
@@ -55,18 +54,16 @@ func runCompletionValues(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func checkCompletionValues(pass *analysis.Pass, call *ast.CallExpr, name string, stride int) {
-	if shape, ok := valueActionShapes[name]; ok {
-		// the number of values is unknown for spread and multi-value arguments
-		if !call.Ellipsis.IsValid() && !returnsMultipleValues(call.Args) && len(call.Args)%stride != 0 {
-			pass.Report(analysis.Diagnostic{
-				Pos:     call.Pos(),
-				Message: fmt.Sprintf("carapace.%s expects %s, got %d arguments", name, shape, len(call.Args)),
-			})
-		}
+func checkCompletionValues(pass *analysis.Pass, call *ast.CallExpr, name string, action valueAction) {
+	// the number of values is unknown for spread and multi-value arguments
+	if action.shape != "" && !call.Ellipsis.IsValid() && !returnsMultipleValues(call.Args) && len(call.Args)%action.stride != 0 {
+		pass.Report(analysis.Diagnostic{
+			Pos:     call.Pos(),
+			Message: fmt.Sprintf("carapace.%s expects %s, got %d arguments", name, action.shape, len(call.Args)),
+		})
 	}
 
-	checkDuplicateValues(pass, call, stride)
+	checkDuplicateValues(pass, call, action.stride)
 }
 
 // checkDuplicateValues reports entries that are defined multiple times within the same action.
@@ -84,7 +81,7 @@ func checkDuplicateValues(pass *analysis.Pass, call *ast.CallExpr, stride int) {
 			continue // empty values are ignored by carapace
 		}
 
-		key := strings.Join(entry, "\x00")
+		key := fmt.Sprintf("%q", entry)
 		if seen[key] {
 			pass.Report(analysis.Diagnostic{
 				Pos:     call.Args[i].Pos(),

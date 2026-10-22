@@ -43,6 +43,7 @@ Actions taking values expect a fixed number of arguments per entry:
 
 | Action                        | Arguments                  |
 |-------------------------------|----------------------------|
+| `ActionStyles`                | style                      |
 | `ActionValues`                | value                      |
 | `ActionValuesDescribed`       | value, description         |
 | `ActionStyledValues`          | value, style               |
