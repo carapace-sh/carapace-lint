@@ -1,0 +1,66 @@
+package flags
+
+type flagSet struct{}
+
+func (f *flagSet) Bool(name string, value bool, usage string) *bool { return &value }
+
+func (f *flagSet) Int(name string, value int, usage string) *int { return &value }
+
+func (f *flagSet) String(name string, value string, usage string) *string { return &value }
+
+func (f *flagSet) StringS(name string, shorthand string, value string, usage string) *string {
+	return &value
+}
+
+type command struct{}
+
+func (c *command) Flags() *flagSet { return &flagSet{} }
+
+func sorted() {
+	cmd := &command{}
+	cmd.Flags().Bool("alpha", false, "alpha")
+	cmd.Flags().Bool("beta", false, "beta")
+}
+
+func unsorted() {
+	cmd := &command{}
+	cmd.Flags().String("beta", "", "beta")
+	cmd.Flags().String("alpha", "", "alpha") // want `flag "alpha" should be sorted before "beta"`
+}
+
+func separated() {
+	cmd := &command{}
+	cmd.Flags().String("beta", "", "beta")
+
+	cmd.Flags().String("alpha", "", "alpha")
+}
+
+func multiline() {
+	cmd := &command{}
+	cmd.Flags().Int(
+		"beta",
+		0,
+		"beta",
+	)
+	cmd.Flags().Int("alpha", 0, "alpha") // want `flag "alpha" should be sorted before "beta"`
+}
+
+func forkVariants() {
+	cmd := &command{}
+	cmd.Flags().StringS("beta", "b", "", "beta")
+	cmd.Flags().StringS("alpha", "a", "", "alpha") // want `flag "alpha" should be sorted before "beta"`
+}
+
+func commented() {
+	cmd := &command{}
+	// beta is deprecated
+	cmd.Flags().String("beta", "", "beta")
+	cmd.Flags().String("alpha", "", "alpha") // want `flag "alpha" should be sorted before "beta"`
+}
+
+func dynamic() {
+	cmd := &command{}
+	name := "beta"
+	cmd.Flags().String(name, "", "beta")
+	cmd.Flags().String("alpha", "", "alpha")
+}
