@@ -69,7 +69,7 @@ mirrors the generator textually instead of using type information.
    `TestNewAllDisabled`).
 4. Add a testdata package and an entry in `analyzers_test.go`; use `// want` comments and
    `RunWithSuggestedFixes` + `.golden` when the check provides fixes.
-5. Document it in `readme.md` (checks table, settings table, example output).
+5. Document it in `README.md` (checks table, settings table, example output).
 6. Verify against carapace-bin with a fresh custom binary and a cleaned cache.
 
 ## Conventions
