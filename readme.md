@@ -10,6 +10,7 @@
 | `flags-order`        | `FlagsOrder`       | flags defined with `cmd.Flags().<Type>(...)` have to be sorted         |
 | `flag-actions-order` | `FlagActionsOrder` | entries of `FlagCompletion(carapace.ActionMap{...})` have to be sorted |
 | `macro-syntax`       | `MacroSyntax`      | public actions have to match the macro syntax                          |
+| `completion-values`  | `CompletionValues` | completion values have to be paired correctly and must be unique       |
 
 ## Macro syntax
 
@@ -31,8 +32,27 @@ func ActionWindows(server, session string) carapace.Action // not available as m
 ```
 
 `MacroSyntax` reports exported `Action*` functions in the configured paths that
-don't match this syntax. Functions of other packages (e.g. completers defining
-`cmd/action` helpers) are ignored, as are methods and test files.
+don't match this syntax, that are missing a doc comment (it becomes the macro
+description), or exported functions returning `carapace.Action` without the `Action`
+prefix. Functions of other packages (e.g. completers defining `cmd/action` helpers)
+are ignored, as are methods and test files.
+
+## Completion values
+
+Actions taking values expect a fixed number of arguments per entry:
+
+| Action                        | Arguments                  |
+|-------------------------------|----------------------------|
+| `ActionValues`                | value                      |
+| `ActionValuesDescribed`       | value, description         |
+| `ActionStyledValues`          | value, style               |
+| `ActionStyledValuesDescribed` | value, description, style  |
+
+`CompletionValues` reports calls with a wrong argument count (carapace would render
+`invalid amount of arguments` instead of completions) and entries defined multiple
+times within the same call, which show up as duplicate menu entries. The same value
+with a different description or style is allowed, as carapace distinguishes entries
+by value and description. Values that are only known at runtime are ignored.
 
 ## Ordering checks
 
@@ -92,6 +112,7 @@ linters:
           flags-order: true
           flag-actions-order: true
           macro-syntax: true
+          completion-values: true
 ```
 
 The linter name (`carapace` above) has to match the registered plugin name.
@@ -102,6 +123,8 @@ Issues are reported per analyzer, e.g.:
 ```text
 main.go:26:2: FlagsOrder: flag "alpha" should be sorted before "beta" (carapace)
 main.go:30:3: FlagActionsOrder: flag completion "alpha" should be sorted before "zeta" (carapace)
+main.go:12:6: MacroSyntax: public action "ActionWindows" should take at most one parameter to match the macro syntax (carapace)
+main.go:40:3: CompletionValues: duplicate completion entry "a" (carapace)
 ```
 
 Files can be excluded with the usual golangci-lint mechanisms, e.g. to skip tests:
@@ -123,6 +146,7 @@ linters:
 | `flag-actions-order` | bool     | `true`                      | check alphabetical order of flag completions    |
 | `macro-syntax`       | bool     | `true`                      | check that public actions match the macro syntax |
 | `macro-syntax-paths` | []string | `["(^|/)pkg/actions(/|$)"]` | file patterns providing public actions          |
+| `completion-values`  | bool     | `true`                      | check completion values                         |
 
 Patterns are matched against the file path. Unknown keys are rejected.
 

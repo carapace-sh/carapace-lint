@@ -27,8 +27,8 @@ func runMacroSyntax(pass *analysis.Pass, paths []*regexp.Regexp) (any, error) {
 		}
 
 		for _, decl := range file.Decls {
-			if action := publicAction(decl); action != nil {
-				checkMacroSyntax(pass, action)
+			if function := macroFunction(decl); function != nil {
+				checkMacroSyntax(pass, function)
 			}
 		}
 	}
@@ -52,33 +52,49 @@ func isActionFile(pass *analysis.Pass, file *ast.File, paths []*regexp.Regexp) b
 	return false
 }
 
-// publicAction returns decl if it is an exported action function.
+// macroFunction returns decl if it is an exported function that is or should be a macro.
 // Macros are discovered by scanning the documentation for `func ActionX(...) carapace.Action`.
-func publicAction(decl ast.Decl) *ast.FuncDecl {
+func macroFunction(decl ast.Decl) *ast.FuncDecl {
 	function, ok := decl.(*ast.FuncDecl)
-	if !ok || function.Recv != nil {
+	if !ok || function.Recv != nil || !function.Name.IsExported() {
 		return nil
 	}
 
-	if !function.Name.IsExported() || !strings.HasPrefix(function.Name.Name, "Action") {
+	if !strings.HasPrefix(function.Name.Name, "Action") && !returnsAction(function.Type.Results) {
 		return nil
 	}
 
 	return function
 }
 
-func checkMacroSyntax(pass *analysis.Pass, action *ast.FuncDecl) {
-	if !returnsAction(action.Type.Results) {
+func checkMacroSyntax(pass *analysis.Pass, function *ast.FuncDecl) {
+	name := function.Name.Name
+	action := strings.HasPrefix(name, "Action")
+
+	switch {
+	case action && !returnsAction(function.Type.Results):
 		pass.Report(analysis.Diagnostic{
-			Pos:     action.Name.Pos(),
-			Message: fmt.Sprintf("public action %q should return carapace.Action to match the macro syntax", action.Name.Name),
+			Pos:     function.Name.Pos(),
+			Message: fmt.Sprintf("public action %q should return carapace.Action to match the macro syntax", name),
+		})
+
+	case action && function.Doc == nil:
+		pass.Report(analysis.Diagnostic{
+			Pos:     function.Name.Pos(),
+			Message: fmt.Sprintf("public action %q should have a doc comment to describe the macro", name),
+		})
+
+	case !action:
+		pass.Report(analysis.Diagnostic{
+			Pos:     function.Name.Pos(),
+			Message: fmt.Sprintf("exported function %q should be prefixed with Action to be available as macro", name),
 		})
 	}
 
-	if parameters(action.Type.Params) > 1 {
+	if action && parameters(function.Type.Params) > 1 {
 		pass.Report(analysis.Diagnostic{
-			Pos:     action.Name.Pos(),
-			Message: fmt.Sprintf("public action %q should take at most one parameter to match the macro syntax", action.Name.Name),
+			Pos:     function.Name.Pos(),
+			Message: fmt.Sprintf("public action %q should take at most one parameter to match the macro syntax", name),
 		})
 	}
 }

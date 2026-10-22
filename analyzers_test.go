@@ -28,3 +28,9 @@ func TestMacroSyntax(t *testing.T) {
 
 	analysistest.Run(t, analysistest.TestData(), newMacroSyntaxAnalyzer(paths), "pkg/actions/tools", "completers/action")
 }
+
+func TestCompletionValues(t *testing.T) {
+	t.Parallel()
+
+	analysistest.Run(t, analysistest.TestData(), completionValuesAnalyzer, "values")
+}

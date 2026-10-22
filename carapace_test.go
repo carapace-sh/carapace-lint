@@ -29,12 +29,13 @@ func TestNew(t *testing.T) {
 		settings any
 		want     int
 	}{
-		{name: "nil", settings: nil, want: 3},
-		{name: "empty", settings: map[string]any{}, want: 3},
-		{name: "flags order disabled", settings: map[string]any{"flags-order": false}, want: 2},
-		{name: "flag actions order disabled", settings: map[string]any{"flag-actions-order": false}, want: 2},
-		{name: "macro syntax disabled", settings: map[string]any{"macro-syntax": false}, want: 2},
-		{name: "all enabled", settings: map[string]any{"flags-order": true, "flag-actions-order": true, "macro-syntax": true}, want: 3},
+		{name: "nil", settings: nil, want: 4},
+		{name: "empty", settings: map[string]any{}, want: 4},
+		{name: "flags order disabled", settings: map[string]any{"flags-order": false}, want: 3},
+		{name: "flag actions order disabled", settings: map[string]any{"flag-actions-order": false}, want: 3},
+		{name: "macro syntax disabled", settings: map[string]any{"macro-syntax": false}, want: 3},
+		{name: "completion values disabled", settings: map[string]any{"completion-values": false}, want: 3},
+		{name: "all enabled", settings: map[string]any{"flags-order": true, "flag-actions-order": true, "macro-syntax": true, "completion-values": true}, want: 4},
 	}
 
 	for _, test := range tests {
@@ -61,7 +62,7 @@ func TestNew(t *testing.T) {
 func TestNewAllDisabled(t *testing.T) {
 	t.Parallel()
 
-	p, err := New(map[string]any{"flags-order": false, "flag-actions-order": false, "macro-syntax": false})
+	p, err := New(map[string]any{"flags-order": false, "flag-actions-order": false, "macro-syntax": false, "completion-values": false})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

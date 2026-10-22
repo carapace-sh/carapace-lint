@@ -34,6 +34,8 @@ type Settings struct {
 	// MacroSyntaxPaths restricts MacroSyntax to files matching these patterns
 	// (default: `["(^|/)pkg/actions(/|$)"]`).
 	MacroSyntaxPaths []string `json:"macro-syntax-paths"`
+	// CompletionValues checks completion values for correct pairing and duplicates (default: true).
+	CompletionValues *bool `json:"completion-values"`
 }
 
 func (s Settings) flagsOrder() bool {
@@ -46,6 +48,10 @@ func (s Settings) flagActionsOrder() bool {
 
 func (s Settings) macroSyntax() bool {
 	return s.MacroSyntax == nil || *s.MacroSyntax
+}
+
+func (s Settings) completionValues() bool {
+	return s.CompletionValues == nil || *s.CompletionValues
 }
 
 // macroSyntaxPaths returns the patterns of files providing public actions.
@@ -102,6 +108,10 @@ func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		}
 
 		analyzers = append(analyzers, newMacroSyntaxAnalyzer(paths))
+	}
+
+	if p.settings.completionValues() {
+		analyzers = append(analyzers, completionValuesAnalyzer)
 	}
 
 	if len(analyzers) == 0 {
