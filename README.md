@@ -61,10 +61,15 @@ Both ordering checks group consecutive definitions, so blank lines (and comments
 separate independent blocks and single definitions are ignored. Multi-line definitions
 are supported.
 
-Suggested fixes are provided for both checks and are applied by `golangci-lint run --fix`.
-The reordered block is formatted in place, so the result stays compatible with `gofmt`.
+Suggested fixes are provided for the ordering checks and for duplicate completion
+entries and are applied by `golangci-lint run --fix`.
+Reordered blocks are formatted in place, so the result stays compatible with `gofmt`.
 A fix is not offered when it can't be applied safely, e.g. when a definition shares a line
 with other code, is preceded by a comment, or when formatting would affect other lines.
+Duplicate entries are removed together with one adjacent comma, including a comment on
+the same line when one follows the comma. The removal ranges never overlap, so several
+duplicates within one call are fixed together; entries are skipped when a comment line
+above the entry would be affected or the file cannot be read.
 The issue is reported nonetheless.
 
 Only flags registered via `cmd.Flags()` are checked, `PersistentFlags()` is ignored

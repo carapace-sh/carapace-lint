@@ -1,6 +1,7 @@
 package carapacelint
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -44,7 +45,7 @@ func runCompletionValues(pass *analysis.Pass) (any, error) {
 			}
 
 			if action, ok := valueActions[name]; ok {
-				checkCompletionValues(pass, call, name, action)
+				checkCompletionValues(pass, file, call, name, action)
 			}
 
 			return true
@@ -54,7 +55,7 @@ func runCompletionValues(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func checkCompletionValues(pass *analysis.Pass, call *ast.CallExpr, name string, action valueAction) {
+func checkCompletionValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, name string, action valueAction) {
 	// the number of values is unknown for spread and multi-value arguments
 	if action.shape != "" && !call.Ellipsis.IsValid() && !returnsMultipleValues(call.Args) && len(call.Args)%action.stride != 0 {
 		pass.Report(analysis.Diagnostic{
@@ -63,13 +64,14 @@ func checkCompletionValues(pass *analysis.Pass, call *ast.CallExpr, name string,
 		})
 	}
 
-	checkDuplicateValues(pass, call, action.stride)
+	checkDuplicateValues(pass, file, call, action.stride)
 }
 
 // checkDuplicateValues reports entries that are defined multiple times within the same action.
 // The same value with a different description or style is allowed.
-func checkDuplicateValues(pass *analysis.Pass, call *ast.CallExpr, stride int) {
+func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int) {
 	seen := make(map[string]bool, len(call.Args)/stride)
+	var duplicates []duplicate
 
 	for i := 0; i+stride <= len(call.Args); i += stride {
 		entry, ok := stringEntry(call.Args[i : i+stride])
@@ -83,16 +85,180 @@ func checkDuplicateValues(pass *analysis.Pass, call *ast.CallExpr, stride int) {
 
 		key := fmt.Sprintf("%q", entry)
 		if seen[key] {
-			pass.Report(analysis.Diagnostic{
-				Pos:     call.Args[i].Pos(),
-				Message: fmt.Sprintf("duplicate completion entry %q", entry[0]),
-			})
-
+			duplicates = append(duplicates, duplicate{index: i, value: entry[0]})
 			continue
 		}
 
 		seen[key] = true
 	}
+
+	if len(duplicates) == 0 {
+		return
+	}
+
+	fixes := duplicateEntryFixes(pass, file, call, stride, duplicates)
+
+	for _, dup := range duplicates {
+		diagnostic := analysis.Diagnostic{
+			Pos:     call.Args[dup.index].Pos(),
+			Message: fmt.Sprintf("duplicate completion entry %q", dup.value),
+		}
+
+		if fix, ok := fixes[dup.index]; ok {
+			diagnostic.SuggestedFixes = []analysis.SuggestedFix{*fix}
+		}
+
+		pass.Report(diagnostic)
+	}
+}
+
+// duplicate is an entry that is defined multiple times within the same call.
+type duplicate struct {
+	index int
+	value string
+}
+
+// duplicateEntryFixes returns a deletion for every duplicated entry of the call.
+// The deletions can be applied together: each removed entry owns one adjacent
+// comma and falls back to the entry itself when those are already in use.
+func duplicateEntryFixes(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int, duplicates []duplicate) map[int]*analysis.SuggestedFix {
+	tf := pass.Fset.File(call.Pos())
+	if tf == nil {
+		return nil
+	}
+
+	content := fileContent(pass, tf)
+	if content == nil {
+		return nil
+	}
+
+	fixes := make(map[int]*analysis.SuggestedFix, len(duplicates))
+	prevEnd := 0
+
+	for _, dup := range duplicates {
+		start := tf.Offset(call.Args[dup.index].Pos())
+		end := tf.Offset(call.Args[dup.index+stride-1].End())
+		if start < prevEnd || start >= end || end > len(content) {
+			return nil
+		}
+
+		if comma, ok := leadingComma(content, start); ok &&
+			comma > prevEnd && !commentOverlaps(file, tf, comma, end) {
+			start = comma
+		} else if trailing, ok := trailingSeparator(content, end); ok &&
+			trailing > prevEnd {
+			end = trailing
+		} else if comma, ok := separatorBefore(content, start); ok &&
+			comma > prevEnd && !commentOverlaps(file, tf, comma, end) {
+			start = comma
+		}
+
+		prevEnd = end
+
+		fixes[dup.index] = &analysis.SuggestedFix{
+			Message: "remove duplicate completion entry",
+			TextEdits: []analysis.TextEdit{{
+				Pos: tf.Pos(start),
+				End: tf.Pos(end),
+			}},
+		}
+	}
+
+	return fixes
+}
+
+// leadingComma returns the position of a comma directly in front of the entry,
+// on the same line.
+func leadingComma(content []byte, start int) (int, bool) {
+	i := start - 1
+	for i >= 0 && (content[i] == ' ' || content[i] == '\t' || content[i] == '\r') {
+		i--
+	}
+
+	if i >= 0 && content[i] == ',' {
+		return i, true
+	}
+
+	return 0, false
+}
+
+// trailingSeparator returns the offset behind an entry where the deletion ends
+// when its trailing comma is taken: the comma plus following whitespace, an
+// inline comment and the indentation of the next argument. The newline in front
+// of a closing parenthesis is kept.
+func trailingSeparator(content []byte, end int) (int, bool) {
+	i := end
+	for i < len(content) && (content[i] == ' ' || content[i] == '\t' || content[i] == '\r') {
+		i++
+	}
+
+	if i >= len(content) || content[i] != ',' {
+		return 0, false
+	}
+
+	i++
+
+	for i < len(content) {
+		switch {
+		case content[i] == ' ' || content[i] == '\t' || content[i] == '\r':
+			i++
+		case content[i] == '/' && i+1 < len(content) && content[i+1] == '/':
+			for i < len(content) && content[i] != '\n' {
+				i++
+			}
+
+			return i, true
+		case content[i] == '/' && i+1 < len(content) && content[i+1] == '*':
+			to := bytes.Index(content[i:], []byte("*/"))
+			if to < 0 || bytes.IndexByte(content[i:i+to], '\n') >= 0 {
+				return i, true
+			}
+
+			i += to + 2
+		case content[i] == '\n':
+			for j := i + 1; j < len(content); j++ {
+				if content[j] != ' ' && content[j] != '\t' && content[j] != '\r' {
+					if content[j] == ')' {
+						return i, true
+					}
+
+					return j, true
+				}
+			}
+
+			return i, true
+		default:
+			return i, true
+		}
+	}
+
+	return i, true
+}
+
+// separatorBefore returns the position of the comma in front of an entry,
+// even across a line break.
+func separatorBefore(content []byte, start int) (int, bool) {
+	i := start - 1
+	for i >= 0 && (content[i] == ' ' || content[i] == '\t' || content[i] == '\r' || content[i] == '\n') {
+		i--
+	}
+
+	if i >= 0 && content[i] == ',' {
+		return i, true
+	}
+
+	return 0, false
+}
+
+// commentOverlaps reports whether a comment group intersects the byte range.
+func commentOverlaps(file *ast.File, tf *token.File, start, end int) bool {
+	for _, group := range file.Comments {
+		if tf.Offset(group.Pos()) < end && start < tf.Offset(group.End()) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // stringEntry returns the unquoted values of a completion entry.

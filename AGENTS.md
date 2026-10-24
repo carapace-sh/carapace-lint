@@ -95,7 +95,11 @@ always done by the consumer via `golangci-lint custom`.
 - Messages are lowercase, one sentence, and name the offending symbol: `public action "ActionX" should ...`.
 - One diagnostic per rule and position; no cascading reports inside one finding.
 - Suggested fixes reorder whole lines, are formatted in place (`formatRegion`) and are dropped when
-  they would change other lines.
+  they would change other lines. Duplicate completion entries are removed together with an adjacent
+  comma instead; the deletion ranges stay disjoint by design.
+- Consecutive fixes are disjoint by design: each removed entry claims its leading
+  comma on the same line, then the trailing one, then any leading comma, otherwise
+  only the entry itself (a leftover trailing comma stays valid Go).
 - Analyzer names are valid Go identifiers (go/analysis requirement); settings keys are kebab-case.
 - Syntax-only checks assume an unaliased `carapace.` qualifier — this matches how the macro generator
   and `go doc` spell types, so it is intentional rather than a limitation to fix.

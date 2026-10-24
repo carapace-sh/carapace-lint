@@ -21,6 +21,17 @@ func duplicateStyles() carapace.Action {
 	return carapace.ActionStyles("red", "blue", "red") // want `duplicate completion entry "red"`
 }
 
+func duplicatedPairs() carapace.Action {
+	return carapace.ActionValues(
+		"a", "a", // want `duplicate completion entry "a"`
+		"b", "b", // want `duplicate completion entry "b"`
+	)
+}
+
+func duplicatedInline() carapace.Action {
+	return carapace.ActionValues("a", "b", "a", "b") // want `duplicate completion entry "a"` `duplicate completion entry "b"`
+}
+
 func duplicateValuesDescribed() carapace.Action {
 	return carapace.ActionValuesDescribed(
 		"a", "description a",

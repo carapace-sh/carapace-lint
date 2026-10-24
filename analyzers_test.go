@@ -32,5 +32,5 @@ func TestMacroSyntax(t *testing.T) {
 func TestCompletionValues(t *testing.T) {
 	t.Parallel()
 
-	analysistest.Run(t, analysistest.TestData(), completionValuesAnalyzer, "values")
+	analysistest.RunWithSuggestedFixes(t, analysistest.TestData(), completionValuesAnalyzer, "values")
 }
