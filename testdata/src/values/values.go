@@ -190,3 +190,23 @@ func batched() carapace.Action {
 		carapace.ActionValues("http", "ftp", "m3u8"), // want `completion value "ftp" should be sorted before "http"`
 	)
 }
+
+func sizeValues() carapace.Action {
+	return carapace.ActionValues("0", "512", "1K", "2K", "4K", "8K", "16K", "32K", "64K", "128K", "256K", "512K", "1M")
+}
+
+func unsortedSizeValues() carapace.Action {
+	return carapace.ActionValues("32k", "16k", "8k", "4k", "2k", "1k", "512", "256") // want `completion value "16k" should be sorted before "32k"` `completion value "8k" should be sorted before "16k"` `completion value "4k" should be sorted before "8k"` `completion value "2k" should be sorted before "4k"` `completion value "1k" should be sorted before "2k"` `completion value "512" should be sorted before "1k"` `completion value "256" should be sorted before "512"`
+}
+
+func numericValues() carapace.Action {
+	return carapace.ActionValues("1.6", "1.8", "9", "10")
+}
+
+func unsortedNumericValues() carapace.Action {
+	return carapace.ActionValues("10", "9") // want `completion value "9" should be sorted before "10"`
+}
+
+func mixedValues() carapace.Action {
+	return carapace.ActionValues("default", "512", "1K") // want `completion value "512" should be sorted before "default"` `completion value "1K" should be sorted before "512"`
+}

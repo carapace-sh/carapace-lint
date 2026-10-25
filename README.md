@@ -56,6 +56,9 @@ that are not sorted alphabetically by value. The same value
 with a different description or style is allowed, as carapace distinguishes entries
 by value and description. Values that are only known at runtime are ignored,
 and sorting is only checked between entries that are defined statically next to each other.
+Lists whose values are all numeric or size-like (512, 2k, 2.5MiB) are ordered
+by magnitude instead, so sizes ascend naturally; a single different value
+falls the whole list back to the byte-wise order.
 
 Deliberately unsorted lists are better expressed via `Batch`: each call is checked
 on its own, so value lists keep their alphabetical order while the order of

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -120,11 +122,16 @@ func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, 
 }
 
 func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry, duplicateIndexes map[int]bool) {
+	less := runOrder(entries)
+	if less == nil {
+		less = func(a, b string) bool { return a < b }
+	}
+
 	var diagnostics []analysis.Diagnostic
 
 	for i := 1; i < len(entries); i++ {
 		previous, current := entries[i-1], entries[i]
-		if previous.value <= current.value {
+		if !less(current.value, previous.value) {
 			continue
 		}
 
@@ -149,7 +156,7 @@ func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr
 	}
 
 	if !hasDuplicates {
-		if fix := sortedEntryFix(pass, file, call, entries); fix != nil {
+		if fix := sortedEntryFix(pass, file, call, entries, less); fix != nil {
 			diagnostics[0].SuggestedFixes = []analysis.SuggestedFix{*fix}
 		}
 	}
@@ -159,9 +166,63 @@ func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr
 	}
 }
 
+// runOrder returns the comparator for the statically defined entries of a run:
+// numeric and size-like values are ordered by magnitude, everything else
+// byte-wise. A nil comparator falls back to the byte order.
+func runOrder(entries []completionEntry) func(a, b string) bool {
+	for _, entry := range entries {
+		if _, ok := magnitude(entry.value); !ok {
+			return nil
+		}
+	}
+
+	return func(a, b string) bool {
+		ma, _ := magnitude(a)
+		mb, _ := magnitude(b)
+
+		return ma < mb
+	}
+}
+
+// sizePattern matches numeric or size-like values, e.g. 512, 2k or 2.5MiB,
+// with the mantissa and suffix captured.
+var sizePattern = regexp.MustCompile(`^([0-9]+(?:\.[0-9]+)?)([a-z]*)$`)
+
+// sizeSteps maps the size suffixes to the power of 1024 they represent.
+var sizeSteps = map[string]int{
+	"": 0, "b": 0,
+	"k": 1, "ki": 1, "kb": 1, "kib": 1,
+	"m": 2, "mi": 2, "mb": 2, "mib": 2,
+	"g": 3, "gi": 3, "gb": 3, "gib": 3,
+	"t": 4, "ti": 4, "tb": 4, "tib": 4,
+	"p": 5, "pi": 5, "pb": 5, "pib": 5,
+	"e": 6, "ei": 6, "eb": 6, "eib": 6,
+}
+
+// magnitude returns the value of a numeric or size-like value, e.g. 1k is
+// returned as 1024, or reports false for anything else.
+func magnitude(value string) (float64, bool) {
+	parts := sizePattern.FindStringSubmatch(strings.ToLower(value))
+	if parts == nil {
+		return 0, false
+	}
+
+	mantissa, err := strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		return 0, false
+	}
+
+	step, ok := sizeSteps[parts[2]]
+	if !ok {
+		return 0, false
+	}
+
+	return mantissa * math.Pow(1024, float64(step)), true
+}
+
 // sortedEntryFix returns a fix that sorts the lines of statically defined entries
 // by value, or nil if they can't be reordered.
-func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry) *analysis.SuggestedFix {
+func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry, less func(a, b string) bool) *analysis.SuggestedFix {
 	tf := pass.Fset.File(call.Pos())
 	if tf == nil {
 		return nil
@@ -186,12 +247,12 @@ func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, ent
 	}
 
 	if wholeLines {
-		if fix := reorderFix(tf, content, "sort completion values alphabetically", units); fix != nil {
+		if fix := reorderFix(tf, content, "sort completion values", units, less); fix != nil {
 			return fix
 		}
 	}
 
-	return inlineSortedFix(tf, content, entries)
+	return inlineSortedFix(tf, content, entries, less)
 }
 
 // inlineSortedFix returns a fix that sorts entries written next to each other,
@@ -199,7 +260,7 @@ func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, ent
 // the separators between them (including line breaks and indentation) stay in
 // place, so the line structure is preserved. Comments or other syntax in
 // between abort the fix.
-func inlineSortedFix(tf *token.File, content []byte, entries []completionEntry) *analysis.SuggestedFix {
+func inlineSortedFix(tf *token.File, content []byte, entries []completionEntry, less func(a, b string) bool) *analysis.SuggestedFix {
 	for _, entry := range entries {
 		if !entry.static {
 			return nil
@@ -238,7 +299,7 @@ func inlineSortedFix(tf *token.File, content []byte, entries []completionEntry) 
 	sortedEntries := make([]completionEntry, len(entries))
 	copy(sortedEntries, entries)
 	sort.SliceStable(sortedEntries, func(i, j int) bool {
-		return sortedEntries[i].value < sortedEntries[j].value
+		return less(sortedEntries[i].value, sortedEntries[j].value)
 	})
 
 	var text strings.Builder

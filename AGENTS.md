@@ -126,6 +126,10 @@ always done by the consumer via `golangci-lint custom`.
   be reported.
 - **Runtime values are skipped**: arity, duplicate and sorting checks only see literal arguments of
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
+- **Numeric and size-like lists are ordered by magnitude**: when every value of a run parses as
+  1024-based size or plain number (`512`, `2k`, `2.5MiB`, `2.80`), sorting compares magnitudes;
+  one different value makes the whole run byte-wise. `reorderFix` takes the comparator, so the
+  line and splice paths agree.
 - **Fixes don't overlap**: a call with duplicate entries gets no sorting fix, as the removals
   touch the same lines; the sorting is offered on a subsequent run.
 - **Ordering policy**: value lists are always checked alphabetically; deliberate grouping is
