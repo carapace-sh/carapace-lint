@@ -232,3 +232,11 @@ func curatedArity(a string) carapace.Action {
 		a,
 	)
 }
+
+func functionKeys() carapace.Action {
+	return carapace.ActionValues("F1", "F2", "F10")
+}
+
+func unsortedFunctionKeys() carapace.Action {
+	return carapace.ActionValues("F1", "F10", "F2") // want `completion value "F2" should be sorted before "F10"`
+}
