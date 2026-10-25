@@ -203,11 +203,12 @@ func curatedCall(pass *analysis.Pass, file *ast.File, call *ast.CallExpr) bool {
 
 // runOrder returns the comparator for the statically defined entries of a run:
 // numeric and size-like values are ordered by magnitude, everything else
-// byte-wise. A nil comparator falls back to the byte order.
+// naturally with runs of digits treated as numbers. A nil comparator falls
+// back to the byte order.
 func runOrder(entries []completionEntry) func(a, b string) bool {
 	for _, entry := range entries {
 		if _, ok := magnitude(entry.value); !ok {
-			return nil
+			return natural
 		}
 	}
 
@@ -217,6 +218,51 @@ func runOrder(entries []completionEntry) func(a, b string) bool {
 
 		return ma < mb
 	}
+}
+
+// natural compares a and b with runs of digits treated as numbers, so F2
+// sorts before F10 and v1.10 after v1.2. Text runs are compared byte-wise
+// and numbers before text; ties compare as strings to keep the order total.
+func natural(a, b string) bool {
+	ai, bi := 0, 0
+	for ai < len(a) && bi < len(b) {
+		aDigit, bDigit := isDigit(a[ai]), isDigit(b[bi])
+		switch {
+		case aDigit && bDigit:
+			aEnd := ai
+			for aEnd < len(a) && isDigit(a[aEnd]) {
+				aEnd++
+			}
+			bEnd := bi
+			for bEnd < len(b) && isDigit(b[bEnd]) {
+				bEnd++
+			}
+
+			aDigits := strings.TrimLeft(a[ai:aEnd], "0")
+			bDigits := strings.TrimLeft(b[bi:bEnd], "0")
+			if len(aDigits) != len(bDigits) {
+				return len(aDigits) < len(bDigits)
+			}
+			if aDigits != bDigits {
+				return aDigits < bDigits
+			}
+
+			ai, bi = aEnd, bEnd
+		case aDigit != bDigit:
+			return aDigit
+		case a[ai] != b[bi]:
+			return a[ai] < b[bi]
+		default:
+			ai++
+			bi++
+		}
+	}
+
+	return a[ai:] < b[bi:]
+}
+
+func isDigit(c byte) bool {
+	return '0' <= c && c <= '9'
 }
 
 // sizePattern matches numeric or size-like values, e.g. 512, 2k or 2.5MiB,
