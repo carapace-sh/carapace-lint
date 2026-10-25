@@ -106,7 +106,7 @@ func reorderFix(tf *token.File, content []byte, message string, units []unit, le
 	sorted := make([]unit, len(units))
 	copy(sorted, units)
 	sort.SliceStable(sorted, func(i, j int) bool {
-		return sorted[i].name < sorted[j].name
+		return less(sorted[i].name, sorted[j].name)
 	})
 
 	var text strings.Builder
