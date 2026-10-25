@@ -139,3 +139,12 @@ func unsortedAroundDynamic(a string) carapace.Action {
 		"a", "description a",
 	)
 }
+
+func unsortedRuns(dyn string) carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"a", "description a",
+		dyn, "dynamic",
+		"y", "description y", // want `completion value "y" should be sorted before "z"`
+		"z", "description z",
+	)
+}
