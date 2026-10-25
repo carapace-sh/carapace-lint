@@ -167,3 +167,22 @@ func unsortedComments() carapace.Action {
 		"b", "description b", // want `completion value "a" should be sorted before "b"`
 	)
 }
+
+func unsortedCase() carapace.Action {
+	return carapace.ActionValues("B", "a") // want `completion value "B" should be sorted before "a"`
+}
+
+func unsortedRaw() carapace.Action {
+	return carapace.ActionValues("a", `b`) // want `completion value "a" should be sorted before "b"`
+}
+
+func emptyValue() carapace.Action {
+	return carapace.ActionValues("", "a", "b") // want `completion value "a" should be sorted before "b"`
+}
+
+func batched() carapace.Action {
+	return carapace.Batch(
+		carapace.ActionValues("off", "on"), // want `completion value "off" should be sorted before "on"`
+		carapace.ActionValues("ftp", "http", "m3u8"), // want `completion value "ftp" should be sorted before "http"`
+	)
+}

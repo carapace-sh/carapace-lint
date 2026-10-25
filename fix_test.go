@@ -156,6 +156,150 @@ func TestFixes(t *testing.T) {
 `,
 		},
 		{
+			name:     "completion values sorted inline triple",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues("b", "a", "c")
+}
+`,
+			want: `func f() {
+	carapace.ActionValues("a", "b", "c")
+}
+`,
+		},
+		{
+			name:     "completion values sorted in literals with commas",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues("b,a", "ab", "b")
+}
+`,
+			want: `func f() {
+	carapace.ActionValues("ab", "b", "b,a")
+}
+`,
+		},
+		{
+			name:     "completion values sorted mixed lines",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValuesDescribed(
+		"c", "description c",
+		"b", "description b", "a", "description a",
+	)
+}
+`,
+			want: `func f() {
+	carapace.ActionValuesDescribed(
+		"a", "description a",
+		"b", "description b", "c", "description c",
+	)
+}
+`,
+		},
+		{
+			name:     "completion values sorted with blank line between",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues(
+		"b",
+
+		"a",
+	)
+}
+`,
+			want: `func f() {
+	carapace.ActionValues(
+		"a",
+
+		"b",
+	)
+}
+`,
+		},
+		{
+			name:     "completion values sorted sharing a line",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.Batch(carapace.ActionDirectories(), carapace.ActionValues("b", "a"))
+}
+`,
+			want: `func f() {
+	carapace.Batch(carapace.ActionDirectories(), carapace.ActionValues("a", "b"))
+}
+`,
+		},
+		{
+			name:     "completion values sorted chained",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues("b", "a").Tag("x")
+}
+`,
+			want: `func f() {
+	carapace.ActionValues("a", "b").Tag("x")
+}
+`,
+		},
+		{
+			name:     "completion values sorted in two runs",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.Batch(
+		carapace.ActionValues("b", "a"),
+		carapace.ActionDirectories(),
+		carapace.ActionValues("c", "d"),
+	)
+}
+`,
+			want: `func f() {
+	carapace.Batch(
+		carapace.ActionValues("a", "b"),
+		carapace.ActionDirectories(),
+		carapace.ActionValues("c", "d"),
+	)
+}
+`,
+		},
+		{
+			name:     "completion values with trailing comment rides along",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues(
+		"b", // b
+		"a",
+	)
+}
+`,
+			want: `func f() {
+	carapace.ActionValues(
+		"a",
+		"b", // b
+	)
+}
+`,
+		},
+		{
+			name:     "completion values with own comment line between",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues(
+		"b",
+		// a
+		"a",
+	)
+}
+`,
+		},
+		{
+			name:     "completion values unformatted file",
+			analyzer: completionValuesAnalyzer,
+			body: `func f()  {
+	carapace.ActionValues("b", "a")
+}
+`,
+		},
+		{
 			name:     "completion values with comment between",
 			analyzer: completionValuesAnalyzer,
 			body: `func f() {

@@ -77,7 +77,8 @@ Unsorted completion values are sorted by their value, and the fix is skipped whe
 call has duplicate entries, as their removal touches the same lines: a second run (or
 running `--fix` again) then sorts the remaining ones. Entries are moved together with
 their descriptions and styles, whether they are written one per line or next to each
-other on the same line.
+other on the same line; sharing a line with other code doesn't block the fix,
+as only the entries themselves are replaced, but comments between entries do.
 Duplicate entries are removed together with one adjacent comma, including a comment on
 the same line when one follows the comma. The removal ranges never overlap, so several
 duplicates within one call are fixed together; entries are skipped when a comment line
