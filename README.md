@@ -10,7 +10,7 @@
 | `flags-order`        | `FlagsOrder`       | flags defined with `cmd.Flags().<Type>(...)` have to be sorted         |
 | `flag-actions-order` | `FlagActionsOrder` | entries of `FlagCompletion(carapace.ActionMap{...})` have to be sorted |
 | `macro-syntax`       | `MacroSyntax`      | public actions have to match the macro syntax                          |
-| `completion-values`  | `CompletionValues` | completion values have to be paired correctly and must be unique       |
+| `completion-values`  | `CompletionValues` | completion values have to be paired correctly, be unique and sorted  |
 
 ## Macro syntax
 
@@ -50,10 +50,20 @@ Actions taking values expect a fixed number of arguments per entry:
 | `ActionStyledValuesDescribed` | value, description, style  |
 
 `CompletionValues` reports calls with a wrong argument count (carapace would render
-`invalid amount of arguments` instead of completions) and entries defined multiple
-times within the same call, which show up as duplicate menu entries. The same value
+`invalid amount of arguments` instead of completions), entries defined multiple
+times within the same call, which show up as duplicate menu entries, and entries
+that are not sorted alphabetically by value. The same value
 with a different description or style is allowed, as carapace distinguishes entries
-by value and description. Values that are only known at runtime are ignored.
+by value and description. Values that are only known at runtime are ignored,
+and sorting is only checked between entries that are defined statically next to each other.
+Lists whose values are all numeric or size-like (512, 2k, 2.5MiB) are ordered
+by magnitude instead, so sizes ascend naturally; a single different value
+falls the whole list back to the byte-wise order.
+
+Deliberately unsorted lists are marked with a `// carapace:curated` comment inside
+the call, which exempts them from the sorting check (arity and duplicates still
+apply). The marker works in the standalone binary as well; `//nolint:carapace`
+suppression and grouping via `Batch` remain available.
 
 ## Ordering checks
 
@@ -61,11 +71,17 @@ Both ordering checks group consecutive definitions, so blank lines (and comments
 separate independent blocks and single definitions are ignored. Multi-line definitions
 are supported.
 
-Suggested fixes are provided for the ordering checks and for duplicate completion
-entries and are applied by `golangci-lint run --fix`.
+Suggested fixes are provided for the ordering checks, for duplicate completion
+entries and for unsorted completion values and are applied by `golangci-lint run --fix`.
 Reordered blocks are formatted in place, so the result stays compatible with `gofmt`.
 A fix is not offered when it can't be applied safely, e.g. when a definition shares a line
 with other code, is preceded by a comment, or when formatting would affect other lines.
+Unsorted completion values are sorted by their value, and the fix is skipped when the same
+call has duplicate entries, as their removal touches the same lines: a second run (or
+running `--fix` again) then sorts the remaining ones. Entries are moved together with
+their descriptions and styles, whether they are written one per line or next to each
+other on the same line; sharing a line with other code doesn't block the fix,
+as only the entries themselves are replaced, but comments between entries do.
 Duplicate entries are removed together with one adjacent comma, including a comment on
 the same line when one follows the comma. The removal ranges never overlap, so several
 duplicates within one call are fixed together; entries are skipped when a comment line
@@ -131,6 +147,7 @@ main.go:26:2: FlagsOrder: flag "alpha" should be sorted before "beta" (carapace)
 main.go:30:3: FlagActionsOrder: flag completion "alpha" should be sorted before "zeta" (carapace)
 main.go:12:6: MacroSyntax: public action "ActionWindows" should take at most one parameter to match the macro syntax (carapace)
 main.go:40:3: CompletionValues: duplicate completion entry "a" (carapace)
+main.go:44:3: CompletionValues: completion value "alpha" should be sorted before "zeta" (carapace)
 ```
 
 Files can be excluded with the usual golangci-lint mechanisms, e.g. to skip tests:
@@ -157,7 +174,7 @@ carapace-lint --version
 
 The binary is a regular analysis driver, so `-fix`, `-json`, `help [analyzer]` and the
 per-analyzer `-<Analyzer>=false` flags are available. Settings like `macro-syntax-paths`
-are only available through the golangci-lint plugin.
+and `//nolint` suppression are only available through the golangci-lint plugin.
 
 ## Settings
 

@@ -78,8 +78,13 @@ func endsLine(rest []byte) bool {
 	}
 }
 
-// reorderFix returns a fix that sorts the given lines by name.
-func reorderFix(tf *token.File, content []byte, message string, units []unit) *analysis.SuggestedFix {
+// reorderFix returns a fix that sorts the given units by name using less, or
+// the byte order when less is nil.
+func reorderFix(tf *token.File, content []byte, message string, units []unit, less func(a, b string) bool) *analysis.SuggestedFix {
+	if less == nil {
+		less = func(a, b string) bool { return a < b }
+	}
+
 	if len(units) < 2 || len(content) != tf.Size() {
 		return nil
 	}

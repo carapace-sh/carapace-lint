@@ -14,11 +14,11 @@ func described() carapace.Action {
 }
 
 func duplicateValues() carapace.Action {
-	return carapace.ActionValues("a", "b", "a") // want `duplicate completion entry "a"`
+	return carapace.ActionValues("a", "b", "a") // want `duplicate completion entry "a"` `completion value "a" should be sorted before "b"`
 }
 
 func duplicateStyles() carapace.Action {
-	return carapace.ActionStyles("red", "blue", "red") // want `duplicate completion entry "red"`
+	return carapace.ActionStyles("red", "blue", "red") // want `duplicate completion entry "red"` `completion value "blue" should be sorted before "red"`
 }
 
 func duplicatedPairs() carapace.Action {
@@ -29,14 +29,14 @@ func duplicatedPairs() carapace.Action {
 }
 
 func duplicatedInline() carapace.Action {
-	return carapace.ActionValues("a", "b", "a", "b") // want `duplicate completion entry "a"` `duplicate completion entry "b"`
+	return carapace.ActionValues("a", "b", "a", "b") // want `duplicate completion entry "a"` `duplicate completion entry "b"` `completion value "a" should be sorted before "b"`
 }
 
 func duplicateValuesDescribed() carapace.Action {
 	return carapace.ActionValuesDescribed(
 		"a", "description a",
 		"b", "description b",
-		"a", "description a", // want `duplicate completion entry "a"`
+		"a", "description a", // want `duplicate completion entry "a"` `completion value "a" should be sorted before "b"`
 	)
 }
 
@@ -107,4 +107,128 @@ func partiallyDynamic(a string) carapace.Action {
 
 func runtimeValues(a, b string) carapace.Action {
 	return carapace.ActionValuesDescribed(a, b)
+}
+
+func unsortedValues() carapace.Action {
+	return carapace.ActionValues(
+		"b",
+		"a", // want `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedDescribed() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"c", "description c",
+		"a", "description a", // want `completion value "a" should be sorted before "c"`
+		"b", "description b",
+	)
+}
+
+func unsortedStyled() carapace.Action {
+	return carapace.ActionStyledValues(
+		"b", "red",
+		"a", "blue", // want `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedInline() carapace.Action {
+	return carapace.ActionValues("b", "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func unsortedAroundDynamic(a string) carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"c", "description c",
+		a, "dynamic",
+		"a", "description a",
+	)
+}
+
+func unsortedRuns(dyn string) carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"a", "description a",
+		"a", "description a", // want `duplicate completion entry "a"`
+		dyn, "dynamic",
+		"z", "description z",
+		"y", "description y", // want `completion value "y" should be sorted before "z"`
+	)
+}
+
+func unsortedInlineCommented() carapace.Action {
+	return carapace.ActionValues("b" /* x */, "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func unsortedMixed() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"c", "description c",
+		"b", "description b", "a", "description a", // want `completion value "b" should be sorted before "c"` `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedComments() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		// leading comment
+		"b", "description b",
+		"a", "description a", // want `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedCase() carapace.Action {
+	return carapace.ActionValues("a", "B") // want `completion value "B" should be sorted before "a"`
+}
+
+func unsortedRaw() carapace.Action {
+	return carapace.ActionValues(`b`, "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func emptyValue() carapace.Action {
+	return carapace.ActionValues("", "b", "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func batched() carapace.Action {
+	return carapace.Batch(
+		carapace.ActionValues("on", "off"),           // want `completion value "off" should be sorted before "on"`
+		carapace.ActionValues("http", "ftp", "m3u8"), // want `completion value "ftp" should be sorted before "http"`
+	)
+}
+
+func sizeValues() carapace.Action {
+	return carapace.ActionValues("0", "512", "1K", "2K", "4K", "8K", "16K", "32K", "64K", "128K", "256K", "512K", "1M")
+}
+
+func unsortedSizeValues() carapace.Action {
+	return carapace.ActionValues("32k", "16k", "8k", "4k", "2k", "1k", "512", "256") // want `completion value "16k" should be sorted before "32k"` `completion value "8k" should be sorted before "16k"` `completion value "4k" should be sorted before "8k"` `completion value "2k" should be sorted before "4k"` `completion value "1k" should be sorted before "2k"` `completion value "512" should be sorted before "1k"` `completion value "256" should be sorted before "512"`
+}
+
+func numericValues() carapace.Action {
+	return carapace.ActionValues("1.6", "1.8", "9", "10")
+}
+
+func unsortedNumericValues() carapace.Action {
+	return carapace.ActionValues("10", "9") // want `completion value "9" should be sorted before "10"`
+}
+
+func mixedValues() carapace.Action {
+	return carapace.ActionValues("default", "512", "1K") // want `completion value "512" should be sorted before "default"` `completion value "1K" should be sorted before "512"`
+}
+
+func curatedValues() carapace.Action {
+	return carapace.ActionValues( // carapace:curated
+		"on", "off",
+		"gzip", "gzip-1", "gzip-2",
+	)
+}
+
+func curatedDuplicates() carapace.Action {
+	return carapace.ActionValues( // carapace:curated
+		"b",
+		"a",
+		"a", // want `duplicate completion entry "a"`
+	)
+}
+
+func curatedArity(a string) carapace.Action {
+	return carapace.ActionValuesDescribed( // want `carapace.ActionValuesDescribed expects value/description pairs, got 3 arguments`
+		"b", "description b", // carapace:curated
+		a,
+	)
 }

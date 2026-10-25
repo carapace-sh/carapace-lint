@@ -56,7 +56,7 @@ func reportFlagActionsOrder(pass *analysis.Pass, tf *token.File, content []byte,
 		return
 	}
 
-	if fix := reorderFix(tf, content, "sort flag completions alphabetically", completionUnits(tf, content, entries)); fix != nil {
+	if fix := reorderFix(tf, content, "sort flag completions alphabetically", completionUnits(tf, content, entries), nil); fix != nil {
 		diagnostics[0].SuggestedFixes = []analysis.SuggestedFix{*fix}
 	}
 

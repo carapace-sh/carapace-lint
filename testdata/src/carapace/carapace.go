@@ -11,3 +11,5 @@ func ActionValuesDescribed(values ...string) Action { return Action{} }
 func ActionStyledValues(values ...string) Action { return Action{} }
 
 func ActionStyledValuesDescribed(values ...string) Action { return Action{} }
+
+func Batch(actions ...any) Action { return Action{} }

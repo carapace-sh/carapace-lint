@@ -34,7 +34,7 @@ type Settings struct {
 	// MacroSyntaxPaths restricts MacroSyntax to files matching these patterns
 	// (default: `["(^|/)pkg/actions(/|$)"]`).
 	MacroSyntaxPaths []string `json:"macro-syntax-paths"`
-	// CompletionValues checks completion values for correct pairing and duplicates (default: true).
+	// CompletionValues checks completion values for correct pairing, order and uniqueness (default: true).
 	CompletionValues *bool `json:"completion-values"`
 }
 
