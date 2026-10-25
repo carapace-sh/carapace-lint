@@ -12,7 +12,7 @@ import (
 
 var completionValuesAnalyzer = &analysis.Analyzer{
 	Name: "CompletionValues",
-	Doc:  "check that completion values are consistent and unique",
+	Doc:  "check that completion values are consistent, unique and sorted",
 	Run:  runCompletionValues,
 }
 
@@ -64,12 +64,114 @@ func checkCompletionValues(pass *analysis.Pass, file *ast.File, call *ast.CallEx
 		})
 	}
 
-	checkDuplicateValues(pass, file, call, action.stride)
+	duplicateCount := checkDuplicateValues(pass, file, call, action.stride)
+	checkSortedValues(pass, file, call, action, duplicateCount > 0)
+}
+
+// checkSortedValues reports values that are not sorted alphabetically.
+// Only entries that are defined statically next to each other are compared,
+// as the values of everything else are unknown.
+func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, action valueAction, hasDuplicates bool) {
+	// the sequence of entries is unknown for spread and multi-value arguments
+	if call.Ellipsis.IsValid() || returnsMultipleValues(call.Args) {
+		return
+	}
+
+	// entry boundaries are broken, the arity is reported separately
+	if action.shape != "" && len(call.Args)%action.stride != 0 {
+		return
+	}
+
+	stride := action.stride
+	entries := make([]completionEntry, 0, len(call.Args)/stride)
+
+	for i := 0; i+stride <= len(call.Args); i += stride {
+		entry := completionEntry{
+			start: call.Args[i].Pos(),
+			end:   call.Args[i+stride-1].End(),
+		}
+
+		if values, ok := stringEntry(call.Args[i : i+stride]); ok && values[0] != "" { // empty values are ignored by carapace
+			entry.value = values[0]
+			entry.static = true
+		}
+
+		entries = append(entries, entry)
+	}
+
+	// statically defined entries form blocks that can be compared and reordered
+	for i := 0; i < len(entries); {
+		next := i
+		for next < len(entries) && entries[next].static {
+			next++
+		}
+
+		reportSortedEntries(pass, file, call, entries[i:next], hasDuplicates)
+		i = next + 1
+	}
+}
+
+func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry, hasDuplicates bool) {
+	var diagnostics []analysis.Diagnostic
+
+	for i := 1; i < len(entries); i++ {
+		previous, current := entries[i-1], entries[i]
+		if previous.value <= current.value {
+			continue
+		}
+
+		diagnostics = append(diagnostics, analysis.Diagnostic{
+			Pos:     current.start,
+			Message: fmt.Sprintf("completion value %q should be sorted before %q", current.value, previous.value),
+		})
+	}
+
+	if len(diagnostics) == 0 {
+		return
+	}
+
+	// duplicate entries are removed by another fix that touches the same lines
+	if !hasDuplicates {
+		if fix := sortedEntryFix(pass, file, call, entries); fix != nil {
+			diagnostics[0].SuggestedFixes = []analysis.SuggestedFix{*fix}
+		}
+	}
+
+	for _, diagnostic := range diagnostics {
+		pass.Report(diagnostic)
+	}
+}
+
+// sortedEntryFix returns a fix that sorts the lines of statically defined entries
+// by value, or nil if they can't be reordered.
+func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry) *analysis.SuggestedFix {
+	tf := pass.Fset.File(call.Pos())
+	if tf == nil {
+		return nil
+	}
+
+	content := fileContent(pass, tf)
+	if content == nil {
+		return nil
+	}
+
+	units := make([]unit, 0, len(entries))
+
+	for _, entry := range entries {
+		u, ok := unitOf(tf, content, entry.value, posSpan{start: entry.start, end: entry.end})
+		if !ok {
+			return nil
+		}
+
+		units = append(units, u)
+	}
+
+	return reorderFix(tf, content, "sort completion values alphabetically", units)
 }
 
 // checkDuplicateValues reports entries that are defined multiple times within the same action.
 // The same value with a different description or style is allowed.
-func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int) {
+func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int) (duplicateCount int) {
 	seen := make(map[string]bool, len(call.Args)/stride)
 	var duplicates []duplicate
 
@@ -93,7 +195,7 @@ func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	}
 
 	if len(duplicates) == 0 {
-		return
+		return 0
 	}
 
 	fixes := duplicateEntryFixes(pass, file, call, stride, duplicates)
@@ -110,7 +212,27 @@ func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 
 		pass.Report(diagnostic)
 	}
+
+	return len(duplicates)
 }
+
+// completionEntry is one entry of a value action call.
+type completionEntry struct {
+	value  string    // unquoted value, empty if not statically defined
+	start  token.Pos // position of the value
+	end    token.Pos // end of the entry
+	static bool      // whether the value is defined statically
+}
+
+// posSpan spans token positions and adapts them to ast.Node for reordering.
+type posSpan struct {
+	start token.Pos
+	end   token.Pos
+}
+
+func (s posSpan) Pos() token.Pos { return s.start }
+
+func (s posSpan) End() token.Pos { return s.end }
 
 // duplicate is an entry that is defined multiple times within the same call.
 type duplicate struct {

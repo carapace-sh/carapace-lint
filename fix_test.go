@@ -126,6 +126,32 @@ func TestFixes(t *testing.T) {
 `,
 		},
 		{
+			name:     "completion values sorted",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues(
+		"b",
+		"a",
+	)
+}
+`,
+			want: `func f() {
+	carapace.ActionValues(
+		"a",
+		"b",
+	)
+}
+`,
+		},
+		{
+			name:     "completion values unsorted inline",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues("b", "a")
+}
+`,
+		},
+		{
 			name:     "flags commented",
 			analyzer: flagsOrderAnalyzer,
 			body: `func f() {

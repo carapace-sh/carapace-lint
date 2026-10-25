@@ -46,7 +46,7 @@ carapace.go          plugin registration, Settings, BuildAnalyzers, Analyzers, l
 flagsorder.go        FlagsOrder: alphabetical cmd.Flags().<Type>(...) definitions
 flagactionsorder.go  FlagActionsOrder: alphabetical FlagCompletion(ActionMap{...}) entries
 macrosyntax.go       MacroSyntax: public actions must be representable as macros
-completionvalues.go  CompletionValues: value arity and duplicate entries
+completionvalues.go  CompletionValues: value arity, duplicate entries and sorted values
 reorder.go           shared reordering and suggested fix helpers
 cmd/carapace-lint/   standalone driver (multichecker) published by goreleaser
 *_test.go            plugin, analyzer, guard and fix tests
@@ -60,7 +60,7 @@ testdata/src/...     analysistest packages (GOPATH layout, `// want` comments, `
 | `FlagsOrder` | `flags-order` | all files | consecutive `cmd.Flags()` definitions sorted alphabetically |
 | `FlagActionsOrder` | `flag-actions-order` | all files | `ActionMap` entries of one `FlagCompletion` sorted alphabetically |
 | `MacroSyntax` | `macro-syntax` (+ `macro-syntax-paths`) | files matching `(^|/)pkg/actions(/|$)` | `func ActionX(...) carapace.Action` with at most one parameter, a doc comment and a single unnamed result |
-| `CompletionValues` | `completion-values` | all files | argument arity of `carapace.ActionStyles/Values/...` and unique entries |
+| `CompletionValues` | `completion-values` | all files | argument arity of `carapace.ActionStyles/Values/...`, unique and sorted entries |
 
 Macros are discovered by scanning package documentation (`spec.ScanMacros`), which is why `MacroSyntax`
 mirrors the generator textually instead of using type information.
@@ -123,8 +123,10 @@ always done by the consumer via `golangci-lint custom`.
 - **Duplicate completion entries compare value, description and style**: the same value with a different
   description is intentional in carapace (see `pkg/actions/fs/extension.go` in carapace-bin) and must not
   be reported.
-- **Runtime values are skipped**: arity and duplicate checks only see literal arguments of
+- **Runtime values are skipped**: arity, duplicate and sorting checks only see literal arguments of
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
+- **Fixes don't overlap**: a call with duplicate entries gets no sorting fix, as the removals
+  touch the same lines; the sorting is offered on a subsequent run.
 - **The standalone binary has no settings**: `cmd/carapace-lint` runs `Analyzers()` (default settings)
   and only supports the driver's own flags (`-fix`, `-json`, `-<Analyzer>=false`). Anything that needs
   `Settings` (e.g. `macro-syntax-paths`) must go through the golangci-lint plugin.
