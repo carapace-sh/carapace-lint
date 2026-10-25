@@ -100,15 +100,17 @@ golangci-lint custom
 ./custom-gcl run ./...
 ```
 
+[golangci-lint-action](https://github.com/golangci/golangci-lint-action) v9 and later build
+the module plugins automatically when it detects the `.custom-gcl.yml` in the repository.
+
 `.custom-gcl.yml`:
 
 ```yaml
 version: v2.15.0
 plugins:
-  # released version (`latest` works as well)
   - module: github.com/carapace-sh/carapace-lint
     import: github.com/carapace-sh/carapace-lint
-    version: v0.1.0
+    version: latest
 
   # or a local checkout
   # - module: github.com/carapace-sh/carapace-lint
