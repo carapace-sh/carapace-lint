@@ -128,6 +128,9 @@ always done by the consumer via `golangci-lint custom`.
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
 - **Fixes don't overlap**: a call with duplicate entries gets no sorting fix, as the removals
   touch the same lines; the sorting is offered on a subsequent run.
+- **Ordering policy**: value lists are always checked alphabetically; deliberate grouping is
+  expressed with `Batch` (each call is checked independently, so precedence between the calls
+  stays free) and outliers are annotated with golangci-lint's `//nolint:carapace`.
 - **Sorting splices entry segments**: entries (value with description and style) are sorted in place
   and the separators between them, including line breaks and indentation, stay in their sequence
   position, so mixed line layouts keep their structure. Runs containing comments can't be spliced.

@@ -57,6 +57,11 @@ with a different description or style is allowed, as carapace distinguishes entr
 by value and description. Values that are only known at runtime are ignored,
 and sorting is only checked between entries that are defined statically next to each other.
 
+Deliberately unsorted lists are better expressed via `Batch`: each call is checked
+on its own, so value lists keep their alphabetical order while the order of
+precedence between the calls stays free. Individual lists that shouldn't be sorted
+can be annotated with golangci-lint's `//nolint:carapace` comment.
+
 ## Ordering checks
 
 Both ordering checks group consecutive definitions, so blank lines (and comments)
@@ -165,7 +170,7 @@ carapace-lint --version
 
 The binary is a regular analysis driver, so `-fix`, `-json`, `help [analyzer]` and the
 per-analyzer `-<Analyzer>=false` flags are available. Settings like `macro-syntax-paths`
-are only available through the golangci-lint plugin.
+and `//nolint` suppression are only available through the golangci-lint plugin.
 
 ## Settings
 
