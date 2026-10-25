@@ -10,7 +10,7 @@
 | `flags-order`        | `FlagsOrder`       | flags defined with `cmd.Flags().<Type>(...)` have to be sorted         |
 | `flag-actions-order` | `FlagActionsOrder` | entries of `FlagCompletion(carapace.ActionMap{...})` have to be sorted |
 | `macro-syntax`       | `MacroSyntax`      | public actions have to match the macro syntax                          |
-| `completion-values`  | `CompletionValues` | completion values have to be paired correctly, be unique and sorted  |
+| `completion-values`  | `CompletionValues` | completion values have to be paired correctly, be unique and sorted naturally |
 
 ## Macro syntax
 
@@ -61,9 +61,18 @@ Lists whose values are all numeric or size-like (512, 2k, 2.5MiB) are ordered
 by magnitude instead, so sizes ascend naturally; a single different value
 falls the whole list back to the natural order.
 
-Deliberately unsorted lists are marked with a `// carapace:curated` comment inside
+Deliberately ordered lists are marked with a `// carapace:curated` comment inside
 the call, which exempts them from the sorting check (arity and duplicates still
-apply). The marker works in the standalone binary as well; `//nolint:carapace`
+apply) — on the call's line for multiline lists, after the call for single-line
+lists:
+
+```go
+return carapace.ActionValues( // carapace:curated
+	"on", "off", "gzip", "gzip-1", "zstd", "zstd-fast",
+)
+```
+
+The marker works in the standalone binary as well; `//nolint:carapace`
 suppression and grouping via `Batch` remain available.
 
 ## Ordering checks
@@ -131,7 +140,7 @@ linters:
     custom:
       carapace:
         type: module
-        description: check alphabetical order of carapace command definitions
+        description: check carapace command definitions
         original-url: https://github.com/carapace-sh/carapace-lint
         settings:
           flags-order: true
