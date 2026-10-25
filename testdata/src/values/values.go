@@ -210,3 +210,25 @@ func unsortedNumericValues() carapace.Action {
 func mixedValues() carapace.Action {
 	return carapace.ActionValues("default", "512", "1K") // want `completion value "512" should be sorted before "default"` `completion value "1K" should be sorted before "512"`
 }
+
+func curatedValues() carapace.Action {
+	return carapace.ActionValues( // carapace:curated
+		"on", "off",
+		"gzip", "gzip-1", "gzip-2",
+	)
+}
+
+func curatedDuplicates() carapace.Action {
+	return carapace.ActionValues( // carapace:curated
+		"b",
+		"a",
+		"a", // want `duplicate completion entry "a"`
+	)
+}
+
+func curatedArity(a string) carapace.Action {
+	return carapace.ActionValuesDescribed( // want `carapace.ActionValuesDescribed expects value/description pairs, got 3 arguments`
+		"b", "description b", // carapace:curated
+		a,
+	)
+}

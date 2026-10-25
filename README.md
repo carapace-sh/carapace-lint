@@ -60,10 +60,10 @@ Lists whose values are all numeric or size-like (512, 2k, 2.5MiB) are ordered
 by magnitude instead, so sizes ascend naturally; a single different value
 falls the whole list back to the byte-wise order.
 
-Deliberately unsorted lists are better expressed via `Batch`: each call is checked
-on its own, so value lists keep their alphabetical order while the order of
-precedence between the calls stays free. Individual lists that shouldn't be sorted
-can be annotated with golangci-lint's `//nolint:carapace` comment.
+Deliberately unsorted lists are marked with a `// carapace:curated` comment inside
+the call, which exempts them from the sorting check (arity and duplicates still
+apply). The marker works in the standalone binary as well; `//nolint:carapace`
+suppression and grouping via `Batch` remain available.
 
 ## Ordering checks
 

@@ -76,6 +76,11 @@ func checkCompletionValues(pass *analysis.Pass, file *ast.File, call *ast.CallEx
 // Only entries that are defined statically next to each other are compared,
 // as the values of everything else are unknown.
 func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, action valueAction, duplicates []duplicate) {
+	// a carapace:curated comment marks the list as intentionally ordered
+	if curatedCall(pass, file, call) {
+		return
+	}
+
 	// the sequence of entries is unknown for spread and multi-value arguments
 	if call.Ellipsis.IsValid() || returnsMultipleValues(call.Args) {
 		return
@@ -164,6 +169,36 @@ func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr
 	for _, diagnostic := range diagnostics {
 		pass.Report(diagnostic)
 	}
+}
+
+// carapaceCurated marks a value list as intentionally ordered when used in a
+// comment inside the call.
+const carapaceCurated = "carapace:curated"
+
+// curatedCall reports whether a comment inside the call arguments carries the
+// carapace:curated marker.
+func curatedCall(pass *analysis.Pass, file *ast.File, call *ast.CallExpr) bool {
+	tf := pass.Fset.File(call.Pos())
+	if tf == nil {
+		return false
+	}
+
+	start, end := tf.Offset(call.Lparen), tf.Offset(call.Rparen)
+
+	for _, group := range file.Comments {
+		groupStart, groupEnd := tf.Offset(group.Pos()), tf.Offset(group.End())
+		if groupStart >= end || groupEnd <= start {
+			continue
+		}
+
+		for _, comment := range group.List {
+			if strings.Contains(comment.Text, carapaceCurated) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // runOrder returns the comparator for the statically defined entries of a run:
