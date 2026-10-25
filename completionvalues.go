@@ -64,14 +64,14 @@ func checkCompletionValues(pass *analysis.Pass, file *ast.File, call *ast.CallEx
 		})
 	}
 
-	duplicateCount := checkDuplicateValues(pass, file, call, action.stride)
-	checkSortedValues(pass, file, call, action, duplicateCount > 0)
+	duplicates := checkDuplicateValues(pass, file, call, action.stride)
+	checkSortedValues(pass, file, call, action, duplicates)
 }
 
 // checkSortedValues reports values that are not sorted alphabetically.
 // Only entries that are defined statically next to each other are compared,
 // as the values of everything else are unknown.
-func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, action valueAction, hasDuplicates bool) {
+func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, action valueAction, duplicates []duplicate) {
 	// the sequence of entries is unknown for spread and multi-value arguments
 	if call.Ellipsis.IsValid() || returnsMultipleValues(call.Args) {
 		return
@@ -84,9 +84,15 @@ func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, 
 
 	stride := action.stride
 	entries := make([]completionEntry, 0, len(call.Args)/stride)
+	duplicateIndexes := make(map[int]bool, len(duplicates))
+
+	for _, dup := range duplicates {
+		duplicateIndexes[dup.index] = true
+	}
 
 	for i := 0; i+stride <= len(call.Args); i += stride {
 		entry := completionEntry{
+			index: i,
 			start: call.Args[i].Pos(),
 			end:   call.Args[i+stride-1].End(),
 		}
@@ -106,12 +112,12 @@ func checkSortedValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, 
 			next++
 		}
 
-		reportSortedEntries(pass, file, call, entries[i:next], hasDuplicates)
+		reportSortedEntries(pass, file, call, entries[i:next], duplicateIndexes)
 		i = next + 1
 	}
 }
 
-func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry, hasDuplicates bool) {
+func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, entries []completionEntry, duplicateIndexes map[int]bool) {
 	var diagnostics []analysis.Diagnostic
 
 	for i := 1; i < len(entries); i++ {
@@ -131,6 +137,15 @@ func reportSortedEntries(pass *analysis.Pass, file *ast.File, call *ast.CallExpr
 	}
 
 	// duplicate entries are removed by another fix that touches the same lines
+	hasDuplicates := false
+
+	for _, entry := range entries {
+		if duplicateIndexes[entry.index] {
+			hasDuplicates = true
+			break
+		}
+	}
+
 	if !hasDuplicates {
 		if fix := sortedEntryFix(pass, file, call, entries); fix != nil {
 			diagnostics[0].SuggestedFixes = []analysis.SuggestedFix{*fix}
@@ -171,7 +186,7 @@ func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, ent
 
 // checkDuplicateValues reports entries that are defined multiple times within the same action.
 // The same value with a different description or style is allowed.
-func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int) (duplicateCount int) {
+func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, stride int) []duplicate {
 	seen := make(map[string]bool, len(call.Args)/stride)
 	var duplicates []duplicate
 
@@ -195,7 +210,7 @@ func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	}
 
 	if len(duplicates) == 0 {
-		return 0
+		return nil
 	}
 
 	fixes := duplicateEntryFixes(pass, file, call, stride, duplicates)
@@ -213,12 +228,13 @@ func checkDuplicateValues(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 		pass.Report(diagnostic)
 	}
 
-	return len(duplicates)
+	return duplicates
 }
 
 // completionEntry is one entry of a value action call.
 type completionEntry struct {
 	value  string    // unquoted value, empty if not statically defined
+	index  int       // index of the value within the call arguments
 	start  token.Pos // position of the value
 	end    token.Pos // end of the entry
 	static bool      // whether the value is defined statically
@@ -329,7 +345,7 @@ func trailingSeparator(content []byte, end int) (int, bool) {
 				i++
 			}
 
-			return i, true
+			// the newline in front of the next argument is taken as well
 		case content[i] == '/' && i+1 < len(content) && content[i+1] == '*':
 			to := bytes.Index(content[i:], []byte("*/"))
 			if to < 0 || bytes.IndexByte(content[i:i+to], '\n') >= 0 {
