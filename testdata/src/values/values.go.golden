@@ -129,7 +129,7 @@ func unsortedStyled() carapace.Action {
 }
 
 func unsortedInline() carapace.Action {
-	return carapace.ActionValues("b", "a") // want `completion value "a" should be sorted before "b"`
+	return carapace.ActionValues("a", "b") // want `completion value "a" should be sorted before "b"`
 }
 
 func unsortedAroundDynamic(a string) carapace.Action {
@@ -146,5 +146,24 @@ func unsortedRuns(dyn string) carapace.Action {
 		dyn, "dynamic",
 		"y", "description y", // want `completion value "y" should be sorted before "z"`
 		"z", "description z",
+	)
+}
+
+func unsortedInlineCommented() carapace.Action {
+	return carapace.ActionValues("b" /* x */, "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func unsortedMixed() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"a", "description a",
+		"b", "description b", "c", "description c", // want `completion value "b" should be sorted before "c"` `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedComments() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		// leading comment
+		"a", "description a",
+		"b", "description b", // want `completion value "a" should be sorted before "b"`
 	)
 }

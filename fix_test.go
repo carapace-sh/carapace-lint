@@ -144,10 +144,22 @@ func TestFixes(t *testing.T) {
 `,
 		},
 		{
-			name:     "completion values unsorted inline",
+			name:     "completion values sorted inline",
 			analyzer: completionValuesAnalyzer,
 			body: `func f() {
 	carapace.ActionValues("b", "a")
+}
+`,
+			want: `func f() {
+	carapace.ActionValues("a", "b")
+}
+`,
+		},
+		{
+			name:     "completion values with comment between",
+			analyzer: completionValuesAnalyzer,
+			body: `func f() {
+	carapace.ActionValues("b" /* x */, "a")
 }
 `,
 		},

@@ -120,6 +120,7 @@ always done by the consumer via `golangci-lint custom`.
   `analysistest` does not; `fileContent` therefore falls back to `os.ReadFile`.
 - **Fixes must stay gofmt-clean**: reordering lines changes tabwriter alignment, so the reordered block is
   formatted with `go/format` and the fix is dropped when formatting would affect lines outside the block.
+  A non-gofmt'ed file therefore silently loses fixes: keep testdata and verified targets gofmt-clean.
 - **Duplicate completion entries compare value, description and style**: the same value with a different
   description is intentional in carapace (see `pkg/actions/fs/extension.go` in carapace-bin) and must not
   be reported.
@@ -127,6 +128,9 @@ always done by the consumer via `golangci-lint custom`.
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
 - **Fixes don't overlap**: a call with duplicate entries gets no sorting fix, as the removals
   touch the same lines; the sorting is offered on a subsequent run.
+- **Sorting splices entry segments**: entries (value with description and style) are sorted in place
+  and the separators between them, including line breaks and indentation, stay in their sequence
+  position, so mixed line layouts keep their structure. Runs containing comments can't be spliced.
 - **The standalone binary has no settings**: `cmd/carapace-lint` runs `Analyzers()` (default settings)
   and only supports the driver's own flags (`-fix`, `-json`, `-<Analyzer>=false`). Anything that needs
   `Settings` (e.g. `macro-syntax-paths`) must go through the golangci-lint plugin.

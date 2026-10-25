@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"sort"
 	"strconv"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -171,17 +173,96 @@ func sortedEntryFix(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, ent
 	}
 
 	units := make([]unit, 0, len(entries))
+	wholeLines := true
 
 	for _, entry := range entries {
 		u, ok := unitOf(tf, content, entry.value, posSpan{start: entry.start, end: entry.end})
 		if !ok {
-			return nil
+			wholeLines = false
+			break
 		}
 
 		units = append(units, u)
 	}
 
-	return reorderFix(tf, content, "sort completion values alphabetically", units)
+	if wholeLines {
+		if fix := reorderFix(tf, content, "sort completion values alphabetically", units); fix != nil {
+			return fix
+		}
+	}
+
+	return inlineSortedFix(tf, content, entries)
+}
+
+// inlineSortedFix returns a fix that sorts entries written next to each other,
+// on one or more lines. The entry literals are spliced in sorted order while
+// the separators between them (including line breaks and indentation) stay in
+// place, so the line structure is preserved. Comments or other syntax in
+// between abort the fix.
+func inlineSortedFix(tf *token.File, content []byte, entries []completionEntry) *analysis.SuggestedFix {
+	for _, entry := range entries {
+		if !entry.static {
+			return nil
+		}
+	}
+
+	start := tf.Offset(entries[0].start)
+	end := tf.Offset(entries[len(entries)-1].end)
+
+	// separators between the entries, in source order
+	var separators [][]byte
+
+	offset := start
+	for i, entry := range entries {
+		entryStart := tf.Offset(entry.start)
+		if entryStart < offset {
+			return nil
+		}
+
+		separator := content[offset:entryStart]
+		for _, c := range string(separator) {
+			switch c {
+			case ',', ' ', '\t', '\r', '\n':
+			default:
+				return nil // comments or other syntax in between
+			}
+		}
+
+		if i > 0 {
+			separators = append(separators, separator)
+		}
+
+		offset = tf.Offset(entry.end)
+	}
+
+	sortedEntries := make([]completionEntry, len(entries))
+	copy(sortedEntries, entries)
+	sort.SliceStable(sortedEntries, func(i, j int) bool {
+		return sortedEntries[i].value < sortedEntries[j].value
+	})
+
+	var text strings.Builder
+	for i, entry := range sortedEntries {
+		text.Write(content[tf.Offset(entry.start):tf.Offset(entry.end)])
+
+		if i < len(separators) {
+			text.Write(separators[i])
+		}
+	}
+
+	formatted, ok := formatRegion(content, start, end, []byte(text.String()))
+	if !ok {
+		return nil
+	}
+
+	return &analysis.SuggestedFix{
+		Message: "sort completion values alphabetically",
+		TextEdits: []analysis.TextEdit{{
+			Pos:     tf.Pos(start),
+			End:     tf.Pos(end),
+			NewText: formatted,
+		}},
+	}
 }
 
 // checkDuplicateValues reports entries that are defined multiple times within the same action.

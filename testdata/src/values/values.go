@@ -152,3 +152,22 @@ func unsortedRuns(dyn string) carapace.Action {
 		"y", "description y", // want `completion value "y" should be sorted before "z"`
 	)
 }
+
+func unsortedInlineCommented() carapace.Action {
+	return carapace.ActionValues("b" /* x */, "a") // want `completion value "a" should be sorted before "b"`
+}
+
+func unsortedMixed() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		"c", "description c",
+		"b", "description b", "a", "description a", // want `completion value "b" should be sorted before "c"` `completion value "a" should be sorted before "b"`
+	)
+}
+
+func unsortedComments() carapace.Action {
+	return carapace.ActionValuesDescribed(
+		// leading comment
+		"b", "description b",
+		"a", "description a", // want `completion value "a" should be sorted before "b"`
+	)
+}
