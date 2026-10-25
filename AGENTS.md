@@ -60,7 +60,7 @@ testdata/src/...     analysistest packages (GOPATH layout, `// want` comments, `
 | `FlagsOrder` | `flags-order` | all files | consecutive `cmd.Flags()` definitions sorted alphabetically |
 | `FlagActionsOrder` | `flag-actions-order` | all files | `ActionMap` entries of one `FlagCompletion` sorted alphabetically |
 | `MacroSyntax` | `macro-syntax` (+ `macro-syntax-paths`) | files matching `(^|/)pkg/actions(/|$)` | `func ActionX(...) carapace.Action` with at most one parameter, a doc comment and a single unnamed result |
-| `CompletionValues` | `completion-values` | all files | argument arity of `carapace.ActionStyles/Values/...`, unique and sorted entries |
+| `CompletionValues` | `completion-values` | all files | argument arity of `carapace.ActionStyles/Values/...`, unique and naturally sorted entries |
 
 Macros are discovered by scanning package documentation (`spec.ScanMacros`), which is why `MacroSyntax`
 mirrors the generator textually instead of using type information.
@@ -128,12 +128,13 @@ always done by the consumer via `golangci-lint custom`.
   `carapace.Action*` calls; anything computed at runtime is ignored to avoid false positives.
 - **Numeric and size-like lists are ordered by magnitude**: when every value of a run parses as
   1024-based size or plain number (`512`, `2k`, `2.5MiB`, `2.80`), sorting compares magnitudes;
-  one different value makes the whole run byte-wise. `reorderFix` takes the comparator, so the
-  line and splice paths agree.
+  one different value makes the whole run naturally ordered. `reorderFix` takes the comparator, so
+  the line and splice paths agree.
 - **Fixes don't overlap**: a call with duplicate entries gets no sorting fix, as the removals
   touch the same lines; the sorting is offered on a subsequent run.
 - **Ordering policy**: value lists are always checked (magnitude-aware for numeric/size runs,
-  byte-wise otherwise) unless annotated with `// carapace:curated` inside the call. Grouping via
+  natural order otherwise, with digit runs compared numerically) unless annotated with
+  `// carapace:curated` inside the call. Grouping via
   `Batch` keeps precedence between the calls free and golangci's `//nolint:carapace` also works.
 - **Sorting splices entry segments**: entries (value with description and style) are sorted in place
   and the separators between them, including line breaks and indentation, stay in their sequence

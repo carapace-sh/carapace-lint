@@ -52,13 +52,14 @@ Actions taking values expect a fixed number of arguments per entry:
 `CompletionValues` reports calls with a wrong argument count (carapace would render
 `invalid amount of arguments` instead of completions), entries defined multiple
 times within the same call, which show up as duplicate menu entries, and entries
-that are not sorted alphabetically by value. The same value
+that are not sorted. Sorting is natural order: alphabetical, with runs of digits
+compared numerically, so F2 sorts before F10. The same value
 with a different description or style is allowed, as carapace distinguishes entries
 by value and description. Values that are only known at runtime are ignored,
 and sorting is only checked between entries that are defined statically next to each other.
 Lists whose values are all numeric or size-like (512, 2k, 2.5MiB) are ordered
 by magnitude instead, so sizes ascend naturally; a single different value
-falls the whole list back to the byte-wise order.
+falls the whole list back to the natural order.
 
 Deliberately unsorted lists are marked with a `// carapace:curated` comment inside
 the call, which exempts them from the sorting check (arity and duplicates still
